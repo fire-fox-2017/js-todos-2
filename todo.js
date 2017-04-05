@@ -66,9 +66,11 @@ class List {
     if (id > this._list.length)
       return false;
     else {
-        this._list[id-1].completed = true;
-        this.saveJsonFile();
-        return true;
+      this._list[id-1].completed = true;
+      this._list[id-1].completed_at = Date.now();
+
+      this.saveJsonFile();
+      return true;
     }
   }
 
@@ -77,9 +79,35 @@ class List {
       return false;
     else {
         this._list[id-1].completed = false;
+        this._list[id-1].completed_at = null;
+
         this.saveJsonFile();
         return true;
     }
+  }
+
+  assignTags (id, tag_array) {
+    if (id > this._list.length)
+      return false;
+    else {
+      for (let i = 0 ; i < tag_array.length ; i++) {
+        this._list[id-1].tags.push(tag_array[i]);
+      }
+
+      // dont' forget to save to file
+      this.saveJsonFile();
+      return true;
+    }
+  }
+
+  filterTag (tag) {
+    let index_arr = []; // get the index
+    for (let i = 0 ; i < this._list.length ; i++) {
+      if (this._list[i].tags.indexOf(tag) >= 0)
+        index_arr.push(i);
+    }
+
+    return index_arr;
   }
 
 }
@@ -123,6 +151,10 @@ class Todo {
     this._list = JSON.parse(data);
   }
 
+  save() {
+    this._listObj.saveJsonFile();
+  }
+
   help() {
     this._view.displayHelp();
   }
@@ -133,6 +165,10 @@ class Todo {
 
   listOutstanding (option) {
     this._view.displayOutstanding(this._listObj.list, option);
+  }
+
+  listCompleted (option) {
+    this._view.displayCompleted(this._listObj.list, option);
   }
 
   add (task) {
@@ -201,11 +237,105 @@ class Todo {
     }
   }
 
-
-  save() {
-    this._listObj.saveJsonFile();
+  assignTags(id, tag_array) {
+    if(!this._listObj.isIdValid(id))
+      console.log("Sorry, you have entered invalid task ID.")
+    else {
+      this._listObj.assignTags(id, tag_array);
+      let task = this._listObj.getTask(id);
+      console.log(`Tagged task "${task.task}" with tags: ${tag_array}`);
+    }
   }
 
+  filterTag(tag) {
+    // get the index of task that has the specified tag
+    let index_arr = this._listObj.filterTag(tag);
+    // console.log(index_arr);
+
+    // pas it to the view
+    this._view.displayTaskWithTag(this._listObj.list, index_arr);
+  }
+
+  initApp() {
+
+    let params = [];
+    process.argv.forEach( (val, index, array) => {
+      if(index > 1) {
+        params.push(val);
+      }
+    });
+
+    // console.log(`params = ${params}`)
+
+    if(params.length > 0) {
+      switch(params[0]) {
+        case 'help':
+          todo.help();
+          break;
+        case 'list':
+          console.log("Todo List:")
+          todo.list();
+          break;
+        case 'add':
+          // let task_str = "";
+          // params.forEach((val, index, arr) => {
+          //   if(index > 0)
+          //     task_str += val + " ";
+          // });
+
+          let task_str = params.slice(1,params.length);
+          // console.log(`task_str = '${task_str}'`);
+          task_str = task_str.join(' ');
+          // console.log(`task_str = '${task_str}'`);
+
+          todo.add(new Task({task: task_str}));
+
+          break;
+        case 'task':
+          todo.taskInfo(params[1]);
+          break;
+
+        case 'delete':
+          todo.delete(params[1]);
+          break;
+        case 'complete':
+          todo.complete(params[1]);
+          break;
+        case 'uncomplete':
+          todo.uncomplete(params[1]);
+          break;
+        case 'list:outstanding':
+          todo.listOutstanding(params[1]);
+          break;
+        case 'list:completed':
+          todo.listCompleted(params[1]);
+          break;
+        case 'tag':
+          let id = params[1];
+          let tag_arr = params.slice(2,params.length);
+
+          // check tag?
+
+          todo.assignTags(id, tag_arr);
+          break;
+        case 'r':
+          console.log(todo._listObj.list);
+          break;
+        default:
+          if(/^filter:/.test(params[0])) {
+            // console.log("filter");
+            let filter_tag = params[0].split(":")[1];
+            // console.log(`filter_tag = "${filter_tag}"`)
+            todo.filterTag(filter_tag);
+          } else {
+            console.log(`Sorry, wrong command.`);
+          }
+
+      }
+
+    }
+
+  }
 }
 
 
@@ -238,6 +368,61 @@ class View {
   }
 
   displayOutstanding (list, option) {
+    let sorted_list = this.sortListByCreatedDate(list, option);
+
+    // console.log("sorted list", sorted_list);
+    // this.displayAll(sorted_list);
+
+    sorted_list.forEach((val, index, array) => {
+      if(!val.completed) {
+        this.displaySingleTask(index, val);
+      }
+    });
+  }
+
+  displayCompleted (list, option) {
+    let sorted_list = this.sortListByCompletedDate(list, option);
+    // console.log("sorted list", sorted_list);
+    // this.displayAll(sorted_list);
+
+    sorted_list.forEach((val, index, array) => {
+
+      if(val.completed) {
+        this.displaySingleTask(index, val);
+      }
+    });
+
+  }
+
+  sortListByCreatedDate (list, option) {
+    let sorted_list = list.sort(function(a,b) {
+      if(option == 'desc')
+        return a.created_at < b.created_at;
+      else if (option == 'asc')
+        return a.created_at > b.created_at;
+    });
+    return sorted_list;
+  }
+
+  sortListByCompletedDate (list, option) {
+    let sorted_list = list.sort(function(a,b) {
+      if(option == 'desc')
+        return a.completed_at < b.completed_at;
+      else if (option == 'asc')
+        return a.completed_at > b.completed_at;
+    });
+    return sorted_list;
+  }
+
+  displaySingleTask (index, task) {
+    let complete = (task.completed) ? "[X]" : "[ ]";
+    console.log(`${index+1}. ${complete} ${task.task}`);
+  }
+
+  displayTaskWithTag (list, index_arr) {
+    for (let i = 0 ; i < index_arr.length ; i++) {
+      console.log(`${index_arr[i]+1}. ${list[index_arr[i]].task} [${list[index_arr[i]].tags}]`)
+    }
 
   }
 
@@ -245,62 +430,7 @@ class View {
 
 
 let todo = new Todo('data.json');
-// todo.loadJsonFile();
-
-
-// get params
-let params = [];
-process.argv.forEach( (val, index, array) => {
-  if(index > 1) {
-    params.push(val);
-  }
-});
-
-console.log(`params = ${params}`)
-
-if(params.length > 0) {
-  switch(params[0]) {
-    case 'help':
-      todo.help();
-      break;
-    case 'list':
-      console.log("Todo List:")
-      todo.list();
-      break;
-    case 'add':
-      // let task_str = "";
-      // params.forEach((val, index, arr) => {
-      //   if(index > 0)
-      //     task_str += val + " ";
-      // });
-
-      let task_str = params.slice(1,params.length);
-      // console.log(`task_str = '${task_str}'`);
-      task_str = task_str.join(' ');
-      // console.log(`task_str = '${task_str}'`);
-
-      todo.add(new Task({task: task_str}));
-
-      break;
-    case 'task':
-      todo.taskInfo(params[1]);
-      break;
-
-    case 'delete':
-      todo.delete(params[1]);
-      break;
-    case 'complete':
-      todo.complete(params[1]);
-      break;
-    case 'uncomplete':
-      todo.uncomplete(params[1]);
-      break;
-    default:
-      console.log(`Sorry, wrong command.`);
-  }
-
-}
-
+todo.initApp();
 
 
 //
