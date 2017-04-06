@@ -4,13 +4,21 @@ const fs = require("fs");
 class Data {
   constructor() {
     this.taskList = [];
-    this.helpList = ["node todo.js list                 to show the to do list",
-                     "node todo.js add <task>           to add new task to the list",
-                     "node todo.js delete <task id>     to delete a task from the list",
-                     "node todo.js complete <task id>   to mark a task as completed",
-                     "node todo.js uncomplete <task id> to unmark a task if it is not yet completed",
-                     "node todo.js task <task id>       to show the task with corresponding id",
-                     "node todo.js list:outstanding     to show the outstanding tasks"];
+    this.helpList = [
+      " node todo.js list                   to show the to do list",
+      " node todo.js add <task>             to add new task to the list",
+      " node todo.js delete <task id>       to delete a task from the list",
+      " node todo.js complete <task id>     to mark a task as completed",
+      " node todo.js uncomplete <task id>   to unmark a task if it is not completed",
+      " node todo.js task <task id>         to show the task with corresponding id",
+      " node todo.js tag <task id> <tags>   to add tags to the task with corresponding id",
+      " node todo.js filter:<tag_name>      to show the filtered tasks based on the tag",
+      " node todo.js list:outstanding       to show the outstanding tasks",
+      "node todo.js list:outstanding asc   to show the outstanding tasks from the oldest to the most recent",
+      "node todo.js list:outstanding desc  to show the outstanding tasks from the most recent to the oldest",
+      "node todo.js list:completed         to show the completed tasks",
+      "node todo.js list:completed asc     to show the completed tasks from the oldest to the most recent",
+      "node todo.js list:completed desc    to show the completed tasks from the most recent to the oldest"];
   }
 }
 
@@ -57,11 +65,32 @@ class Control {
         this.clear();
         this.saveToFile(file);
       } else if (argv[2] === "list:outstanding") {
-        if (argv[3].length > 0) {
+        if (argv[3]) {
           this.listOutstanding(argv[3])
         } else {
           this.listOutstanding();
         }
+      } else if (argv[2] === "list:completed") {
+        if (argv[3]) {
+          this.listCompleted(argv[3])
+        } else {
+          this.listCompleted();
+        }
+      } else if (argv[2] === "tag") {
+        let tags = [];
+        for (let i = 4; i < argv.length; i++) {
+          tags.push(argv[i]);
+        }
+        if (tags.length > 0) {
+          this.addTags(argv[3], tags);
+          this.saveToFile(file);
+        } else {
+          this.view.requireTags();
+        }
+      } else if (/filter/.test(argv[2])) {
+        let rawInput = argv[2].split(":");
+        let targetTags = rawInput[1].split(" ");
+        this.filterTasks(targetTags);
       }
     } else {
       this.view.suggestHelp();
@@ -103,12 +132,31 @@ class Control {
       this.view.showList(outstandingList);
     } else if (sort === "asc") {
       let ascSorted = outstandingList.sort(function(a,b) {return a.timeCreated > b.timeCreated});
-      this.view.showList(ascSorted);
+      this.view.showList(ascSorted, "created");
     } else if (sort === "desc") {
       let ascSorted = outstandingList.sort(function(a,b) {return b.timeCreated > a.timeCreated});
-      this.view.showList(ascSorted);
+      this.view.showList(ascSorted, "created");
+    }
+  }
+
+  listCompleted(sort = "noSort") {
+    let data = this.data.taskList;
+    let completedList = [];
+    for (let i = 0; i < data.length; i++) {
+      if (data[i].marked) {
+        completedList.push(data[i]);
+      }
     }
 
+    if (sort === "noSort") {
+      this.view.showList(completedList);
+    } else if (sort === "asc") {
+      let ascSorted = completedList.sort(function(a,b) {return a.timeCompleted > b.timeCompleted});
+      this.view.showList(ascSorted, "completed");
+    } else if (sort === "desc") {
+      let ascSorted = completedList.sort(function(a,b) {return b.timeCompleted > a.timeCompleted});
+      this.view.showList(ascSorted, "completed");
+    }
   }
 
   checkID(taskID) { //check if ID exists
@@ -138,7 +186,11 @@ class Control {
 
   task(taskID) {
     let index = this.searchIndex(taskID);
-    this.view.showTask(this.data.taskList[index]);
+    if (index !== null) {
+      this.view.showTask(this.data.taskList[index]);
+    } else {
+      this.view.noIDErr();
+    }
   }
 
   insertTime() {
@@ -202,6 +254,7 @@ class Control {
        this.view.noIDErr();
      } else if (data[index].item.length > 0) {
        data[index].marked = false;
+       data[index].timeCompleted = null;
        this.view.unMarkedMsg(data[index].item, taskID);
      } else {
      this.view.noIDErr();
@@ -209,6 +262,54 @@ class Control {
   } else {
     this.view.emptyListErr();
   }
+ }
+
+ addTags(taskID, tags) {
+   let index = this.searchIndex(taskID);
+   if (index !== null) {
+     let data = this.data.taskList;
+     for (let i = 0; i < tags.length; i++) {
+       data[index].tags.push(tags[i]);
+     }
+     let task = data[index].item;
+     this.view.taggedMsg(task, taskID, tags)
+   } else {
+     this.view.noIDErr();
+   }
+ }
+
+ searchTags(targetTags, taskID) {
+   let data = this.data.taskList;
+   let index = this.searchIndex(taskID);
+   let taskTags = data[index].tags;
+   let tagsFoundIndices = [];
+   for (let i = 0; i < taskTags.length; i++) {
+     for (let j = 0; j < targetTags.length; j++) {
+       if (taskTags[i] === targetTags[j]) {
+         tagsFoundIndices.push(i);
+       }
+     }
+   }
+   if (tagsFoundIndices.length > 0) {
+     return tagsFoundIndices;
+   } else {
+     return null;
+   }
+ }
+
+ filterTasks(targetTags) {
+   let data = this.data.taskList;
+   let filteredTasks = [];
+   for (let i = 0; i < data.length; i++) {
+     if (this.searchTags(targetTags, data[i].id)) {
+       filteredTasks.push(data[i]);
+     }
+   }
+   if (filteredTasks.length > 0) {
+     this.view.showList(filteredTasks, "filtered");
+   } else {
+     this.view.noTagsFoundMsg(targetTags);
+   }
  }
 
  clear() {
@@ -229,7 +330,7 @@ class View {
     }
   }
 
-  showList(taskList) {
+  showList(taskList, option = "none") {
     if (taskList.length > 0) {
       for(let i = 0; i < taskList.length; i++) {
         let mark = "";
@@ -238,10 +339,18 @@ class View {
         } else {
           mark = " ";
         }
-        console.log(`${i+1}. [${mark}] id: ${taskList[i].id} task: ${taskList[i].item}`);
+        let addition = "";
+        if (option === "created") {
+          addition = ` created: ${taskList[i].timeCreated}`;
+        } else if (option === "completed") {
+          addition = ` completed: ${taskList[i].timeCompleted}`;
+        } else if (option === "filtered") {
+          addition = (` tags: ${taskList[i].tags}`);
+        }
+        console.log(`${i+1}. [${mark}] id: ${taskList[i].id} task: ${taskList[i].item} ${addition}`);
       }
     } else {
-      console.log("no item in the list, type 'node todo.js add <task>' to add task");
+      console.log("no item in the list, type 'node todo.js help' to show the commands");
     }
   }
 
@@ -250,7 +359,7 @@ class View {
   }
 
   emptyListErr() {
-    console.log("no item to be deleted from the list, please add some task first");
+    console.log("no item to be in the list, please add some task first");
   }
 
   noIDErr() {
@@ -273,6 +382,10 @@ class View {
     console.log(`task '${task}' with id ${taskID} is unmarked or still an outstanding`);
   }
 
+  taggedMsg(task, taskID, tags) {
+    console.log(`task '${task}' with id ${taskID} is tagged with '${tags}'`);
+  }
+
   savingFileErrMsg() {
     console.log("error occured when saving the change to the file");
   }
@@ -287,6 +400,14 @@ class View {
 
   requireTaskID() {
     console.log("please input task id");
+  }
+
+  requireTags() {
+    console.log("please input the tags");
+  }
+
+  noTagsFoundMsg(tag) {
+    console.log(`no tasks has the '${tag}' tag`);
   }
 
   suggestHelp() {
