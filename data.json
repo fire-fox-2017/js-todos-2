@@ -1,1 +1,1 @@
-[{"id":"ID1","task":"tru","marked":false,"date_created":"Thu, 06 Apr 2017 12:08:23 GMT","date_completed":0},{"id":"ID2","task":"truds","marked":false,"date_created":"Thu, 06 Apr 2017 12:08:23 GMT","date_completed":0}]
+[{"id":"ID1","task":"tugas1","marked":false,"date_created":"2017-04-07T09:27:10.477Z","date_completed":0,"tag":["makanan","banyak"]},{"id":"ID2","task":"tugas2","marked":true,"date_created":"2017-04-07T09:27:38.668Z","date_completed":0,"tag":["banyak"]}]

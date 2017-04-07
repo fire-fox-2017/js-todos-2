@@ -66,6 +66,49 @@ class toDoView {
       console.log(pesan);
     }
 
+    showListOutStanding(data){
+      if(data.length > 0){
+        for (var i = 0; i < data.length; i++) {
+            console.log(`${i + 1}. [] ${data[i].id} : ${data[i].task}`);
+        }
+      } else {
+        console.log('Tidak ada task yang belum complete');
+      }
+    }
+
+    showListCompleted(data){
+      if(data.length > 0){
+        for (var i = 0; i < data.length; i++) {
+            console.log(`${i + 1}. [x] ${data[i].id} : ${data[i].task}`);
+        }
+      } else {
+        console.log('Tidak ada task yang complete');
+      }
+    }
+
+    showTagMessage(task, data){
+      var kataTag = data.join(',');
+      console.log(`Tagged task "${task}" with tags: ${data} `);
+    }
+
+    showTagMessageErr(){
+      console.log('Data Tidak Ditemukan');
+    }
+
+    showFilter(data){
+      if (data.length > 0) {
+          for (var i = 0; i < data.length; i++) {
+              if (data[i].marked == false) {
+                  console.log(`${i + 1}. [] ${data[i].id} : ${data[i].task} ${data[i].tag}`);
+              } else {
+                  console.log(`${i + 1}. [x] ${data[i].id} : ${data[i].task} [${data[i].tag}]`);
+              }
+          }
+      } else {
+          console.log('Data Tidak Ditemukan');
+      }
+    }
+
 }
 
 class toDoController {
@@ -84,9 +127,9 @@ class toDoController {
             id: idbaru,
             task: dataTask,
             marked: false,
-            date_created: dateBaru.toUTCString(),
-            date_completed: 0
-        };
+            date_created: dateBaru,
+            date_completed: 0,
+            tag : []};
         this._data = this._model.getData();
         this._data.push(dataBaru);
         this._model.saveFile(this._data);
@@ -106,9 +149,14 @@ class toDoController {
     createIdTask(dataTask) {
         let id = 'ID';
         let tmpId = this._model.findIdTask();
-        let nomorID = tmpId.slice(2);
-        let idBaru = id + (+nomorID + 1);
-        return idBaru;
+        if(tmpId !== 1){
+          let nomorID = tmpId.slice(2);
+          let idBaru = id + (+nomorID + 1);
+          return idBaru;
+        } else {
+          var idPertama = 'ID1';
+          return idPertama;
+        }
     }
 
     deleteTask(input) {
@@ -155,10 +203,65 @@ class toDoController {
         }
     }
 
+    listOutstanding(){
+      let listOutstanding = this._model.getListOutstanding();
+
+      let dataSorted1 =  listOutstanding.sort(function(a,b) {return a.date_created > b.date_created});
+      this._view.showListOutStanding(dataSorted1);
+    }
+
+    listOutstandingAsc(){
+      let listOutstandingAsc = this._model.getListOutstanding();
+      let dataSortedAsc1 = listOutstandingAsc.sort(function(a,b) {return a.date_created > b.date_created});
+      this._view.showListOutStanding(dataSortedAsc1);
+    }
+
+    listOutstandingDesc(){
+      let listOutstandingDesc = this._model.getListOutstanding();
+      let dataSortedDesc1 = listOutstandingDesc.sort(function(a,b) {return b.date_created > a.date_created});
+      this._view.showListOutStanding(dataSortedDesc1);
+    }
+
+    listCompleted(){
+      let listCompleted = this._model.getlistCompleted();
+      let dataSorted2 =  listCompleted.sort(function(a,b) {return a.date_created > b.date_created});
+      this._view.showListCompleted(dataSorted2);
+    }
+
+    listCompletedAsc(){
+      let listCompletedAsc = this._model.getlistCompleted();
+      let dataSortedAsc2 =  listCompletedAsc.sort(function(a,b) {return a.date_created > b.date_created});
+      this._view.showListCompleted(dataSortedAsc2);
+    }
+
+    listCompletedDesc(){
+      let listCompletedDesc = this._model.getlistCompleted();
+      let dataSortedDsc2 =  listCompletedDesc.sort(function(a,b) {return b.date_created > a.date_created});
+      this._view.showListCompleted(dataSortedDsc2);
+    }
+
+    tag(data){
+      var task = this._model.addTag(data[0],data);
+      if(task != ''){
+        this._view.showTagMessage(task, data);
+      } else {
+        this._view.showTagMessageErr();
+      }
+
+    }
+
+    filter(data){
+      var dataFilter = this._model.filterTag(data);
+      this._view.showFilter(dataFilter);
+    }
+
     chooseMenu() {
         let input = this._argv;
         input.shift();
         input.shift();
+
+        let input2 = input.join(' ');
+        let input3 = input.join('').split(':');
 
         if (input[0] === undefined || input[0] === 'help') {
             this._view.showHelp();
@@ -179,8 +282,27 @@ class toDoController {
         } else if (input[0] === 'uncomplete') {
             input.shift();
             this.unCompleteTask(input);
-        } else {
-            this._view.showHelpError();
+        } else if (input2 === 'list:outstanding') {
+            this.listOutstanding();
+        } else if (input2 === 'list:outstanding asc'){
+            this.listOutstandingAsc();
+        } else if (input2 === 'list:outstanding desc'){
+            this.listOutstandingDesc();
+        } else if (input2 === 'list:completed'){
+          this.listCompleted();
+        } else if (input2 === 'list:completed asc'){
+          this.listCompletedAsc();
+        } else if (input2 === 'list:completed desc'){
+          this.listCompletedDesc();
+        } else if (input[0] === 'tag'){
+          input.shift();
+          this.tag(input);
+        } else if (input3[0] === 'filter'){
+          input3.shift();
+          this.filter(input3);
+        }
+        else {
+          this._view.showHelpError();
         }
 
     }
@@ -193,6 +315,15 @@ class toDoModel {
 
     addTask(dataTask) {
         this.saveFile(dataTask);
+    }
+
+    findIdTask() {
+      if(this._data.length == 0){
+        return 1;
+      } else {
+        return this._data[this._data.length - 1].id;
+      }
+
     }
 
     getTaskList() {
@@ -228,7 +359,7 @@ class toDoModel {
       for (var i = 0; i < this._data.length; i++) {
           if (this._data[i].id == input) {
               this._data[i].marked = true;
-              this._data[i].date_completed = dateBaru.toUTCString();
+              this._data[i].date_completed = dateBaru;
               mark++;
           }
       }
@@ -261,19 +392,66 @@ class toDoModel {
       }
     }
 
+    getListOutstanding(){
+      let dataOutstanding = [];
+      for (var i = 0; i < this._data.length; i++) {
+        if(this._data[i].marked == false){
+          dataOutstanding.push(this._data[i]);
+        }
+      }
+      return dataOutstanding;
+    }
+
+    getlistCompleted(){
+      let dataCompleted = [];
+      for (var i = 0; i < this._data.length; i++) {
+        if(this._data[i].marked == true){
+          dataCompleted.push(this._data[i]);
+        }
+      }
+      return dataCompleted;
+    }
+
+    addTag(id, data){
+      var namaTask = '';
+      data.shift();
+      for (var i = 0; i < this._data.length; i++) {
+        if (this._data[i].id == id) {
+            for (var j = 0; j < data.length; j++) {
+              this._data[i].tag.push(data[j]);
+              namaTask = this._data[i].task;
+            }
+        }
+      }
+      this.saveFile(this._data);
+      return namaTask;
+
+    }
+
+    filterTag(data){
+      var dataTag = [];
+      var kataTag = String(data);
+
+      for (var i = 0; i < this._data.length; i++) {
+        if(this._data[i].tag.includes(kataTag)){
+          dataTag.push(this._data[i]);
+        }
+      }
+
+      return dataTag;
+
+    }
+
     saveFile(dataTask) {
         fs.writeFile('data.json', JSON.stringify(dataTask), function (err) {
             if (err) return console.log(err);
         });
     }
 
-    findIdTask() {
-        return this._data[this._data.length - 1].id;
-    }
-
     getData() {
         return this._data;
     }
+
 }
 
 let appToDo = new toDoController();
