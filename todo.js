@@ -74,12 +74,18 @@ class Controller {
     node todo.js filter <tag_name>`
     );
   }
+  
+  getTaskId() {
+    let tasks = this.model.database;
+    let lastId = tasks.length === 0 ? null : tasks[tasks.length-1].id; // get the id num
+    let newId = lastId === null ? 1 : lastId + 1;
+    return newId;
+  }
 
   //add
   add(content) {
     let tasks = this.model.database;
-    let lastId = tasks.length === 0 ? null : tasks[tasks.length-1].id; // get the id num
-    let newId = lastId === null ? 1 : lastId + 1;
+    let newId = this.getTaskId();
     let newTask = new Task({
       'id': newId,
       'content': content
@@ -117,7 +123,6 @@ class Controller {
         this.model.writeFile();
       }
     });
-    
   }
 
   //complete
@@ -142,77 +147,74 @@ class Controller {
       }
     });
   }
-
+  
+  // list uncomplete
   listOutstanding(option) {
     let tasks = this.model.database;
-    let outstanding = tasks.filter((el, idx) => {
-      if(!el.isCompleted) {
-        return el;
-      }
-    });
+    let outstanding = this.getOutstandingTask(tasks);
     if(option === 'asc' || option === 'undefined') {
-      let ascOrDefault = outstanding.sort((a, b) => {
-        if(a.createdAt < b.createdAt) {
-          return -1;
-        }
-        if(a.createdAt > b.createdAt) {
-          return 1;
-        }
-        return 0;
-      });
-      ascOrDefault.forEach((el, idx) => {
-        this.view.outstandingMsg(el);
-      });
+      this.ascOrDefault(outstanding);
     } else {
-      let desc = outstanding.sort((a, b) => {
-        if(a.createdAt < b.createdAt) {
-          return 1;
-        }
-        if(a.createdAt > b.createdAt) {
-          return -1;
-        }
-        return 0;
-      });
-      desc.forEach((el, idx) => {
-        this.view.outstandingMsg(el);
-      });
+      this.desc(outstanding);
     }
+  }
+
+  ascOrDefault(filteredTask) {
+    let ascOrDefault = filteredTask.sort((a, b) => {
+      if(a.createdAt < b.createdAt) {
+        return -1;
+      }
+      if(a.createdAt > b.createdAt) {
+        return 1;
+      }
+      return 0;
+    });
+    ascOrDefault.forEach((el, idx) => {
+      this.view.listCompleteMsg(el);
+    });
+  }
+
+  desc(filteredTask) {
+    let desc = filteredTask.sort((a, b) => {
+      if(a.createdAt < b.createdAt) {
+        return 1;
+      }
+      if(a.createdAt > b.createdAt) {
+        return -1;
+      }
+      return 0;
+    });
+    desc.forEach((el, idx) => {
+      this.view.listCompleteMsg(el);
+    });
   }
 
   listComplete(option) {
     let tasks = this.model.database;
-    let complete = tasks.filter((el, idx) => {
+    let complete = this.getCompletedTask(tasks);
+    if(option === 'asc' || option === 'undefined') { // default: 'undefined' is desc. change to '' for asc
+      this.ascOrDefault(complete);
+    } else {
+      this.desc(complete);
+    }
+  }
+
+  getOutstandingTask(database) {
+    let outstanding = database.filter((el, idx) => {
+      if(!el.isCompleted) {
+        return el;
+      }
+    });
+    return outstanding;
+  }
+
+  getCompletedTask(database) {
+    let complete = database.filter((el, idx) => {
       if(el.isCompleted) {
         return el;
       }
     });
-    if(option === 'asc' || option === 'undefined') { // default: 'undefined' is desc. change to '' for asc
-      let ascOrDefault = complete.sort((a, b) => {
-        if(a.createdAt < b.createdAt) {
-          return -1;
-        }
-        if(a.createdAt > b.createdAt) {
-          return 1;
-        }
-        return 0;
-      });
-      ascOrDefault.forEach((el, idx) => {
-        this.view.listCompleteMsg(el);
-      });
-    } else {
-      let desc = complete.sort((a, b) => {
-        if(a.createdAt < b.createdAt) {
-          return 1;
-        }
-        if(a.createdAt > b.createdAt) {
-          return -1;
-        }
-        return 0;
-      });
-      desc.forEach((el, idx) => {
-        this.view.listCompleteMsg(el);
-      });
-    }
+    return complete;
   }
 
 }
