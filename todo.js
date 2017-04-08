@@ -26,37 +26,44 @@ class Controller {
         this.help();
         break;
       case 'add':
-        this.add(this.getUserInput())
+        this.add(this.getUserInput(3).join(' '))
         break;
       case 'list':
         this.list();
         break;
       case 'task':
-        this.task(this.getUserInput());
+        this.task(this.getUserInput(3).join(' '));
         break;
       case 'delete':
-        this.delete(this.getUserInput());
+        this.delete(this.getUserInput(3).join(' '));
         break;
       case 'complete':
-        this.complete(this.getUserInput());
+        this.complete(this.getUserInput(3).join(' '));
         break;
       case 'uncomplete':
-        this.uncomplete(this.getUserInput());
+        this.uncomplete(this.getUserInput(3).join(' '));
         break;
       case 'list:outstanding':
-        this.listOutstanding(this.getUserInput());
+        this.listOutstanding(this.getUserInput(3).join(' '));
         break;
       case 'list:complete':
-        this.listComplete(this.getUserInput());
+        this.listComplete(this.getUserInput(3).join(' '));
+        break;
+      case 'tag':
+        this.tag(this.getUserInput(3).join(' '));
+        break;
+      case 'filter':
+        this.filter(this.getUserInput(3).join(' '));
+        break;
     }
   }
 
-  getUserInput() {
+  getUserInput(startingIdx) {
     let result = [];
-    for (let i = 3; i < this.argv.length; i++) {
+    for (let i = startingIdx; i < this.argv.length; i++) {
        result.push(this.argv[i]);
     }
-    return result.join(' ');
+    return result;
   }
 
  help() {
@@ -86,10 +93,7 @@ class Controller {
   add(content) {
     let tasks = this.model.database;
     let newId = this.getTaskId();
-    let newTask = new Task({
-      'id': newId,
-      'content': content
-    });
+    let newTask = new Task({'id': newId, 'content': content});
     tasks.push(newTask);
     this.model.writeFile();
     this.view.addMsg(content);
@@ -101,7 +105,6 @@ class Controller {
     tasks.forEach((el, idx) => {
       this.view.listMsg(el);
     });
-    
   }
   
   //task (show task in detail)
@@ -131,6 +134,7 @@ class Controller {
     tasks.forEach((el, idx) => {
       if(el.id == id) {
         el.isCompleted = true;
+        el.completedAt = Task.getTime();
         this.view.completeMsg(el.content);
         this.model.writeFile();
       }
@@ -142,6 +146,7 @@ class Controller {
     tasks.forEach((el, idx) => {
       if(el.id == id) {
         el.isCompleted = false;
+        el.completedAt = null;
         this.view.uncompleteMsg(el.content);
         this.model.writeFile();
       }
@@ -217,6 +222,33 @@ class Controller {
     return complete;
   }
 
+  tag(id) {
+    let tasks = this.model.database;
+    id = this.argv[3];
+    tasks.forEach((el, idx) => {
+      if(this.argv.length >= 4) {
+        if(id == el.id) {
+          let tags = this.getUserInput(4); // arr
+          el.tags = tags;
+          this.view.tagMsg(el);
+          this.model.writeFile();
+        }
+      }
+    });
+  }
+
+  filter(tag) { //tag hasilnya array
+    let tasks = this.model.database;
+    tasks.forEach((el, idx) => {
+      let elTagLength = el.tags.length;
+        for(let i = 0; i < elTagLength; i++) {
+          if(tag === el.tags[i]) {
+            this.view.filterMsg(el)
+          }
+        }
+    });
+  }
+
 }
 
 class View {
@@ -253,6 +285,14 @@ class View {
   }
   listCompleteMsg(completedTask) {
     console.log(`${completedTask.id} [${(completedTask.isCompleted ? 'X' : ' ')}] : ${completedTask.content} | ${completedTask.createdAt}`);
+  }
+
+  tagMsg(task) {
+    console.log(`Tagged task '${task.content}' with tags: ${task.tags}`);
+  }
+
+  filterMsg(tag) {
+    console.log(`id: ${tag.id}. Task: ${tag.content}. tags: ${tag.tags}. status: ${(tag.isCompleted ? 'completed' : 'uncomplete')}.`);
   }
 }
 
