@@ -51,9 +51,11 @@ class Model {
     }
 
     done(n) {
+        var tanggal = new Date();
         for (let i = 0; i < this._listData.length; i++) {
             if (String(this._listData[i].id) === n) {
                 this._listData[i].complete = '[X]';
+                this._listData[i].done = tanggal;
                 break;
             }
         }
@@ -84,6 +86,7 @@ class Model {
             task: string,
             complete: '[ ]',
             date: tanggal,
+            done: '',
             tag: []
         });
         this.arrangeID();
@@ -95,6 +98,7 @@ class Model {
 
             if (String(this._listData[i].id) === n) {
                 this._listData[i].complete = '[ ]';
+                this._listData[i].done = '';
                 break;
             }
         }
@@ -124,6 +128,14 @@ class View {
     }
 
     showList(data) {
+        console.log(`${data.id}. ${data.complete} ${data.task}`);
+    }
+
+    showListComplete(data) {
+        console.log(`${data.id}. ${data.complete} ${data.task} ${data.done}`);
+    }
+
+    showListOutstanding(data) {
         console.log(`${data.id}. ${data.complete} ${data.task} ${data.date}`);
     }
 
@@ -139,7 +151,9 @@ class View {
         console.log('4. Menghapus TODO dengan : delete <id>');
         console.log('5. Menandai bahwa TODO selesai dengan dengan : complete <id>');
         console.log('6. Menandai bahwa TODO belum selesai dengan : uncomplete <id>');
-        console.log('7. Melihat teks bantuan dengan : help');
+        console.log('7. list completed : list:completed asc|desc');
+        console.log('8. list outstanding : list:outstanding asc|desc');
+        console.log('9. Melihat teks bantuan dengan : help');
 
     }
 
@@ -155,8 +169,9 @@ class Controller {
         this._view = new View();
 
     }
-    initController(input) {
-        let argv = input;
+    initController() {
+        let argv = process.argv
+
         if (argv.length > 1) {
             argv.shift();
             argv.shift();
@@ -202,8 +217,11 @@ class Controller {
             if (argv[0] == 'list:outstanding' && argv[1] == 'desc') {
                 this.sortDesc();
             }
-            if (argv[0] == 'list:completed') {
-                this.yangKelar();
+            if (argv[0] == 'list:completed' && argv[1] == 'asc') {
+                this.yangKelarAsc();
+            }
+            if (argv[0] == 'list:completed' && argv[1] == 'desc') {
+                this.yangKelarDesc();
             }
             if (argv[0] == 'tag') {
                 let data = argv.slice(2, argv.length);
@@ -224,7 +242,7 @@ class Controller {
     }
     sortAsc() {
         let data = this._model.data;
-        console.log(data)
+
         data.sort(function(a, b) {
             if (a.date < b.date)
                 return -1;
@@ -232,9 +250,9 @@ class Controller {
                 return 1;
             return 0;
         });
-        console.log(data)
+
         for (let i = 0; i < data.length; i++) {
-            this._view.showList(data[i]);
+            this._view.showListOutstanding(data[i]);
         }
     }
 
@@ -255,7 +273,7 @@ class Controller {
 
     sortDesc() {
         let data = this._model.data;
-        console.log(data)
+
         data.sort(function(a, b) {
             if (a.date < b.date)
                 return -1;
@@ -263,18 +281,42 @@ class Controller {
                 return 1;
             return 0;
         });
-        console.log(data)
+
         for (let i = 0; i < data.length; i++) {
-            this._view.showList(data[i]);
+            this._view.showListOutstanding(data[i]);
         }
     }
-    yangKelar() {
+    yangKelarAsc() {
         let data = this._model.data;
+        data.sort(function(a, b) {
+            if (a.done < b.done)
+                return -1;
+            if (a.done > b.done)
+                return 1;
+            return 0;
+        });
         for (let i = 0; i < data.length; i++) {
 
             if (data[i].complete === '[X]') {
 
-                this._view.showList(data[i]);
+                this._view.showListComplete(data[i]);
+            }
+        }
+    }
+    yangKelardesc() {
+        let data = this._model.data;
+        data.sort(function(a, b) {
+            if (a.done < b.done)
+                return -1;
+            if (a.done > b.done)
+                return 1;
+            return 0;
+        });
+        for (let i = 0; i < data.length; i++) {
+
+            if (data[i].complete === '[X]') {
+
+                this._view.showListComplete(data[i]);
             }
         }
     }
@@ -321,4 +363,4 @@ class Controller {
 }
 
 let toDo = new Controller();
-toDo.initController(process.argv);
+toDo.initController();
